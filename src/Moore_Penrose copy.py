@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.linalg import pinv as inversa
 from typing import Callable
-from Gerador_de_Sinal import main as gerador_sinal_entrada_saida
+from src.Gerador_de_Sinal import main as gerador_sinal_entrada_saida
 
 """
 Na minha primeira forma de buscar eu estava comparando os sinais original e estimado inclusive o pedaço que não era estimado.

@@ -1,15 +1,14 @@
-"""Filtro LS (Moore-Penrose) com busca reprodutivel de ordem/delay e avaliacao Monte Carlo."""
+"""Filtro LS (Moore-Penrose) com busca reprodutivel de ordem/delay e avaliação Monte Carlo."""
 
-from __future__ import annotations
-
-from typing import Callable
+# Bibliotecas #
 import numpy as np
+from typing import Callable
 from numpy.linalg import pinv as inversa
 import matplotlib.pyplot as plt
+from src.Gerador_de_Sinal import main as gerador_sinal_entrada_saida
 
-from Gerador_de_Sinal import main as gerador_sinal_entrada_saida
 
-
+# Funções auxiliares #
 def RMSE_e_MAE_por_ordem(A, B, printar: bool = False):
     diff = np.asarray(A) - np.asarray(B)
     rmse = np.sqrt(np.mean(diff**2))

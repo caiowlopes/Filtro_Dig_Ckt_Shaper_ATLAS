@@ -1,7 +1,7 @@
 # Bibliotecas
 
 import numpy as np
-import Script_TCC
+import src.Shaper_ATLAS_Simulator as Shaper_ATLAS_Simulator
 import matplotlib.pyplot as plt
 from typing import Callable
 
@@ -137,8 +137,8 @@ def matriz_convolucao(
 def main(
     qntd_amostras_leitura: int,
     ckt_parameters_error: np.ndarray | None = None,
-    CKT_parameters: Callable = Script_TCC.ckt_parameters,
-    CKT_simulator: Callable = Script_TCC.MonteCarlo_iteration,
+    CKT_parameters: Callable = Shaper_ATLAS_Simulator.ckt_parameters,
+    CKT_simulator: Callable = Shaper_ATLAS_Simulator.MonteCarlo_iteration,
     media_energia_cada_cintilador=30,
     seed=None,
 ):
@@ -191,8 +191,8 @@ if __name__ == "__main__":
     ) / 100
 
     parametro_leitura_ckt = {
-        "CKT_parameters": Script_TCC.ckt_parameters,
-        "CKT_simulator": Script_TCC.MonteCarlo_iteration,
+        "CKT_parameters": Shaper_ATLAS_Simulator.ckt_parameters,
+        "CKT_simulator": Shaper_ATLAS_Simulator.MonteCarlo_iteration,
         "ckt_parameters_error": ckt_parameters_error,
         "qntd_amostras_leitura": 50,
         "media_energia_cada_cintilador": 30,

@@ -203,7 +203,7 @@ def MonteCarlo_iteration(
 
         else:
             sinal0 = sum(xa).real
-            maxs = max(abs(sinal0))
+            maxs = np.max(np.abs(sinal0))
             y1 = sinal0 / maxs  # largest module/ normalize
             y_out.append(y1)
 
@@ -579,9 +579,9 @@ def correlacao(
 ):
 
     corr_coefs = [pearsonr(i, y)[0] for i in x]
-    x_corr = {key: abs(coef) for key, coef in zip(xlabels, corr_coefs)}
+    x_corr = {key: abs(coef) for key, coef in zip(xlabels, corr_coefs)}  # type: ignore
 
-    sorted_coefficients = sorted(corr_coefs, key=abs)
+    sorted_coefficients = sorted(corr_coefs, key=abs)  # type: ignore
     x_coords_labels = sorted(xlabels, key=x_corr.__getitem__)
 
     plt.figure(figsize=(size, size))
@@ -743,7 +743,7 @@ def histogram(
             )
 
         # Add count labels above each bar
-        for count, patch in zip(n, patches):
+        for count, patch in zip(n, patches):  # type: ignore
             x = patch.get_x() + patch.get_width() / 2
             y = patch.get_height()
             ax.text(
