@@ -1,9 +1,11 @@
 # Bibliotecas
 
 import numpy as np
-import src.Shaper_ATLAS_Simulator as Shaper_ATLAS_Simulator
+import Shaper_ATLAS_Simulator as Shaper_ATLAS_Simulator
 import matplotlib.pyplot as plt
 from typing import Callable
+
+# import src.Shaper_ATLAS_Simulator as Shaper_ATLAS_Simulator
 
 
 # Funções auxiliares #
