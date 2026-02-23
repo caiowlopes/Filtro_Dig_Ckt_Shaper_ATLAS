@@ -5,7 +5,7 @@ import numpy as np
 from typing import Callable
 from numpy.linalg import pinv as inversa
 import matplotlib.pyplot as plt
-from src.Gerador_de_Sinal import main as gerador_sinal_entrada_saida
+from src.Gerador_de_Sinais import main as gerador_sinal_entrada_saida
 
 
 # Funções auxiliares #
