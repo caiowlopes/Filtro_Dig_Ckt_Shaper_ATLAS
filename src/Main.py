@@ -1,19 +1,19 @@
 # Bibliotecas #
 from Filtro_LS import *
 from Funcoes_auxiliares import *
-from Gerador_de_Sinais import main as gerador_sinal_entrada_saida
-
+from Gerador_de_Sinais import main as leitura_shaper
+from Gerador_de_Sinais import original_signal_generator
 
 # Consantes & Variáveis #
-quantidade_de_amostras = 1000
+quantidade_de_amostras = 50
 dt = 25 * 10**-9  # tempo entre amostras. Dados proveniente do Shaper
 fs = 1 / dt  # frequência de amostragem. 40 MHz
 resoluçao = fs / quantidade_de_amostras
+seed = 42
 
 # Gerador de sinais #
-sinal_original, Readout_Shaper = gerador_sinal_entrada_saida(
-    quantidade_de_amostras, seed=42
-)
+sinal_original = original_signal_generator(quantidade_de_amostras, seed=seed)
+Readout_Shaper = leitura_shaper(sinal_original, seed=seed)
 
 
 def zona_maior_erro(xh, x=sinal_original, limite=quantidade_de_amostras - 7 + 1):
@@ -46,12 +46,11 @@ s_est_LS1 = filtro_LS(
     ordem_filter=ordem_f_LS1,
 )
 
-lim_filt1 = quantidade_de_amostras + 1 - ordem_f_LS1
 
 r_1, m_1 = RMSE_e_MAE_por_ordem(
     A=s_est_LS1,
     B=sinal_original,
-    limite_filtro=lim_filt1,
+    limite_filtro=quantidade_de_amostras + 1 - ordem_f_LS1,
     printar=True,
 )
 
@@ -97,6 +96,7 @@ s_est_LS_ext = filtro_LS_com_termos_nao_lineares(
     readout=Readout_Shaper,
     ordem_filter=ordem_f_LS_ext,
     delay=0,
+    valor_min_clip_saida=0,
 )
 
 lim_filt_ext = quantidade_de_amostras + 1 - ordem_f_LS_ext
@@ -143,7 +143,7 @@ x_pico = float(idx_max)
 plt.figure(figsize=(10, 4))
 plt.plot(eixo, x[ini:fim], label="Sinal real", linewidth=2)
 plt.plot(eixo, xh[ini:fim], label="Estimativa", linewidth=2, alpha=0.85)
-plt.axhline(y=y_pico, color="r", linestyle=":", label="Maior erro")
+plt.axhline(y=float(y_pico), color="r", linestyle=":", label="Maior erro")
 plt.axvline(x=x_pico, color="r", linestyle=":")
 plt.title(f"Região do maior erro (idx={idx_max}, |erro|={erro_abs[idx_max]:.4f})")
 plt.xlabel(x_label)
