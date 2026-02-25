@@ -98,35 +98,102 @@ def filtro_LS_com_termos_nao_lineares(
     readout: list | np.ndarray,
     ordem_filter: int = 7,
     delay: int = 0,
-    # incluir_x2: bool = True,
-    # incluir_xn_xn1: bool = True,
-    valor_max_clip: int | None = None,
-    valor_min_clip: int = 0,
+    incluir_x2: bool = True,
+    incluir_xn_xn1: bool = True,
+    valor_min_clip_entrada: np.floating | int | None = None,
+    valor_max_clip_entrada: float | int | None = None,
+    valor_min_clip_saida: np.floating | int | None = None,
+    valor_max_clip_saida: float | int | None = None,
+    retunr_pesos: bool = False,
 ):
     """
-    LS com base expandida (não linear leve):
-      - termos lineares x
-      - termos quadráticos x^2
-      - termos de interação x(n)*x(n-1)
+    Filtro LS (Least Squares) com expansão não-linear da base.
+
+    Base utilizada:
+        - Termos lineares: x
+        - Termos quadráticos: x^2
+        - Termos de interação: x(n) * x(n-1)
+
+    Parâmetros:
+    ------------
+
+    sinal_desejado        : sinal alvo (target)
+    readout               : sinal de entrada
+    ordem_filter          : Ordem do filtro
+    delay                 : atraso/delay
+    incluir_x2            : Booleano para decidir se incluir o termo quadrático.
+    incluir_xn_xn1        : Booleano para decidir se incluir o termo de interação entre amostras consecutivas
+    valor_min_clip_entrada: valor mínimo para saturação do sinal de entrada. Para não clipar/retirar, None.
+    valor_max_clip_entrada: valor máximo para saturação do sinal de entrada. Para não clipar/retirar, None.
+    valor_min_clip_saida  : valor mínimo para saturação do sinal de saida. Para não clipar/retirar, None.
+    valor_max_clip_saida  : valor máximo para saturação do sinal de saida. Para não clipar/retirar, None.
+    retunr_pesos          : Booleano para decidir se os pesos também serão retornados.
+
     """
-    readout_shaper = np.clip(readout, valor_min_clip, valor_max_clip)
-    Xlin = matriz_observacao(readout_shaper, ordem_filtro=ordem_filter)
-    y = np.asarray(sinal_desejado)[delay : delay + Xlin.shape[0]]
 
-    # feats = [Xlin]
-    # if incluir_x2:
-    #     feats.append(Xlin**2)
-    # if incluir_xn_xn1 and ordem_filter >= 2:
-    #     feats.append(Xlin[:, 1:] * Xlin[:, :-1])
+    # 1) PRÉ-PROCESSAMENTO DO SINAL DE ENTRADA
+    readout = np.array(readout)
 
-    feats = [Xlin, Xlin**2, Xlin[:, 1:] * Xlin[:, :-1]]
+    # Garante que o sinal de entrada fique dentro do intervalo desejado
+    readout_clipado = np.clip(
+        readout, valor_min_clip_entrada, valor_max_clip_entrada, dtype=float
+    )
 
-    Xexp = np.column_stack(feats)
-    Xb = np.column_stack([Xexp, np.ones(Xexp.shape[0])])  # bias
+    # 2) CONSTRUÇÃO DA MATRIZ DE OBSERVAÇÃO LINEAR
 
-    beta = inversa(Xb.T @ Xb) @ Xb.T @ y
+    # Cria matriz do tipo:
+    # [ x(n)   x(n-1)   x(n-2)  ... ]
+    X_linear = matriz_observacao(readout_clipado, ordem_filtro=ordem_filter)
 
-    sinal_estimado = np.zeros(len(readout_shaper), dtype=float)
-    sinal_estimado[: Xlin.shape[0]] = Xb @ beta
-    sinal_estimado = np.clip(sinal_estimado, valor_min_clip, valor_max_clip)
-    return sinal_estimado
+    # Ajusta o sinal desejado considerando o delay
+    s_desejado = np.asarray(sinal_desejado)[delay : delay + X_linear.shape[0]]
+
+    # 3) EXPANSÃO NÃO-LINEAR DA BASE
+
+    # 3.1 Termos lineares
+    termos_lineares = X_linear
+    feat = [termos_lineares]
+
+    # 3.2 Termos quadráticos
+    if incluir_x2:
+        termos_quadraticos = X_linear**2
+        feat.append(termos_quadraticos)
+
+    # 3.3 Termos de interação entre amostras consecutivas
+    #  x(n) * x(n-1)
+    if incluir_xn_xn1:
+        termos_interacao = X_linear[:, 1:] * X_linear[:, :-1]
+        feat.append(termos_interacao)
+
+    # Junta todas as features (colunas)
+    X_expandida = np.column_stack(feat)
+
+    # 4) ADIÇÃO DO TERMO DE BIAS
+
+    # Cria coluna de 1's para representar o bias
+    coluna_bias = np.ones((X_expandida.shape[0], 1))
+
+    # Matriz final do modelo
+    X_modelo = np.column_stack([X_expandida, coluna_bias])
+
+    # 5) SOLUÇÃO DO PROBLEMA DE MÍNIMOS QUADRADOS
+
+    # Fórmula pseudo_inversa para cálculo dos pesos
+    inversa_matriz_normal = inversa(X_modelo.T @ X_modelo)
+    pseudo_inversa = inversa_matriz_normal @ X_modelo.T
+
+    pesos = pseudo_inversa @ s_desejado
+
+    # 6) RECONSTRUÇÃO DO SINAL ESTIMADO
+
+    sinal_estimado = np.zeros(len(readout_clipado), dtype=float)
+    sinal_estimado[: X_linear.shape[0]] = X_modelo @ pesos
+
+    # Aplica saturação no resultado final
+    sinal_estimado = np.clip(sinal_estimado, valor_min_clip_saida, valor_max_clip_saida)
+
+    # Retorno
+    if not retunr_pesos:
+        return sinal_estimado
+    else:
+        return sinal_estimado, pesos
