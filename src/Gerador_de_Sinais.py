@@ -13,7 +13,11 @@ from typing import Callable
 
 # Função sinal leitura (saida shaper) #
 # sinal_original = trem de impulsos # energy truth (sinal de enregia verdadeiro)
-def saida_shaper(lista: list | np.ndarray, matriz: list | np.ndarray):
+def simulate_shaper_readout(
+    lista: list | np.ndarray,
+    matriz: list | np.ndarray,
+    return_resul1: bool = False,
+):
     """
     Saida esperada:
 
@@ -49,7 +53,10 @@ def saida_shaper(lista: list | np.ndarray, matriz: list | np.ndarray):
     # resultado2: soma por coluna
     resultado2 = resultado1.sum(axis=0)
 
-    return resultado1, resultado2
+    if return_resul1:
+        return resultado1, resultado2
+    else:
+        return resultado2
 
 
 # Gerador/Simulador do sinal registrado pelos sensores #
@@ -137,14 +144,14 @@ def matriz_convolucao(
 
 
 def main(
-    qntd_amostras_leitura: int,
+    sinal_original: np.ndarray,
     ckt_parameters_error: np.ndarray | None = None,
     CKT_parameters: Callable = Shaper_ATLAS_Simulator.ckt_parameters,
     CKT_simulator: Callable = Shaper_ATLAS_Simulator.MonteCarlo_iteration,
-    media_energia_cada_cintilador=30,
     seed=None,
 ):
     """
+    sinal_original: sinal proveniente das colisoes. Sinal desejado.
     seed: para reprodutibilidade da aleatoriedade do Monte Carlo.
     "CKT_simulator": Script_TCC.MonteCarlo_iteration,
     "CKT_parameters": Script_TCC.ckt_parameters,
@@ -156,17 +163,10 @@ def main(
             np.array([10, 1, 1, 1, 2, 2, 2, 0.10, 0, 0], dtype=float)
         ) / 100
 
-    # Simulação do sinal de entrada do Shaper
-    sinal_original = original_signal_generator(
-        num_amostras_leitura=qntd_amostras_leitura,
-        media_energia_cintilador=media_energia_cada_cintilador,
-        seed=seed,
-    )
-
     # Simulação do efeito do Shaper
     wave_former = np.asarray(
         matriz_convolucao(
-            amostras_das_leitura=qntd_amostras_leitura,
+            amostras_das_leitura=len(sinal_original),
             noise=ckt_parameters_error,
             CKT_parameters=CKT_parameters,
             CKT_simulator=CKT_simulator,
@@ -175,9 +175,9 @@ def main(
     )
 
     # Sinal após passar pelo Shaper
-    _, Readout_Shaper = saida_shaper(matriz=wave_former, lista=sinal_original)
+    Readout_Shaper = simulate_shaper_readout(matriz=wave_former, lista=sinal_original)
 
-    return sinal_original, Readout_Shaper
+    return Readout_Shaper
 
 
 if __name__ == "__main__":
@@ -192,12 +192,14 @@ if __name__ == "__main__":
         np.array([10, 1, 1, 1, 2, 2, 2, 0.10, 0, 0], dtype=float)
     ) / 100
 
+    s_desejado = original_signal_generator(qntd_amostras_leitura)
+
     parametro_leitura_ckt = {
         "CKT_parameters": Shaper_ATLAS_Simulator.ckt_parameters,
         "CKT_simulator": Shaper_ATLAS_Simulator.MonteCarlo_iteration,
         "ckt_parameters_error": ckt_parameters_error,
-        "qntd_amostras_leitura": 50,
-        "media_energia_cada_cintilador": 30,
+        "sinal_original": s_desejado,
+        # "media_energia_cada_cintilador": 30,
     }
 
     leitura_do_Shaper = main(**parametro_leitura_ckt)

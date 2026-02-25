@@ -81,7 +81,7 @@ def busca_ordem_otima_filtro(
     filtro: Callable,
     ordem_mais_alta: int,
     step: int = 1,
-    tamanho_janela_fixo: bool = False,
+    tamanho_janela_fixo: bool = True,
     delay: int = 2,
     **filtro_kwargs,
 ):
