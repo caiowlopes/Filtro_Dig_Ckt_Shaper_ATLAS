@@ -16,7 +16,7 @@ from typing import Callable
 def simulate_shaper_readout(
     lista: list | np.ndarray,
     matriz: list | np.ndarray,
-    return_resul1: bool = False,
+    # return_resul1: bool = False,
 ):
     """
     Saida esperada:
@@ -53,10 +53,10 @@ def simulate_shaper_readout(
     # resultado2: soma por coluna
     resultado2 = resultado1.sum(axis=0)
 
-    if return_resul1:
-        return resultado1, resultado2
-    else:
-        return resultado2
+    # if return_resul1:
+    #     return resultado1, resultado2
+    # else:
+    return resultado2
 
 
 # Gerador/Simulador do sinal registrado pelos sensores #
@@ -64,7 +64,7 @@ def original_signal_generator(
     num_amostras_leitura: int,
     position_percentage: float = 0.2,
     media_energia_cintilador: int = 30,
-    seed=None,
+    seed: int | None = None,
 ):
     """
     position_percentage = 20 a 30 % de num_amostras_leitura

@@ -1,8 +1,8 @@
 """Fuinções auxiliares para os Filtros"""
 
 import numpy as np
-from typing import Callable
 import matplotlib.pyplot as plt
+from typing import Callable
 
 
 # Funções auxiliares #
@@ -10,10 +10,11 @@ import matplotlib.pyplot as plt
 def plot_estimado_x_original(
     original: np.ndarray,
     estimado: np.ndarray,
-    limite_filtro: int | float,
+    ordem: int = 7,
     xlimite_min: int | float = 0,
     xlimite_max: int | float = 0,
     title: str = "Original x Estimado",
+    limite_filtro: bool = False,
 ):
     """
     limite_filtro= qntd_amostra - ordem + 1
@@ -31,7 +32,9 @@ def plot_estimado_x_original(
 
     plt.plot(original)
     plt.plot(estimado)
-    plt.axvline(limite_filtro, color="black", linestyle="--", linewidth=1.0)
+    if limite_filtro:
+        lim_filtro = len(original) - ordem + 1
+        plt.axvline(lim_filtro, color="black", linestyle="--", linewidth=1.0)
 
     plt.legend(["Original", "Estimado", "Limite Estimativa"], loc="upper right")
 
@@ -41,7 +44,7 @@ def plot_estimado_x_original(
 
 # Comparação numerica
 def RMSE_e_MAE_por_ordem(
-    A: np.ndarray, B: np.ndarray, limite_filtro: int | float = 0, printar: bool = False
+    A: np.ndarray, B: np.ndarray, ordem_filtro: int | float = 0, printar: bool = False
 ):
     """
     Calcula o RMSEW e o MAE. Ambos podem ser: np.array | int | floats...
@@ -53,6 +56,8 @@ def RMSE_e_MAE_por_ordem(
 
     Caso requisitado, os resultados são imprimidos.
     """
+    limite_filtro = len(A) - ordem_filtro + 1
+
     diff = A[:limite_filtro] - B[:limite_filtro] if limite_filtro != 0 else A - B
 
     rmse = np.sqrt(np.mean(diff**2))
@@ -92,8 +97,13 @@ def busca_ordem_otima_filtro(
     -----------
     ordem_mais_alta: int, obrigatorio.
         Valor da ordem mais alta a ser testada.
-    """
 
+    Retorno:
+    --------
+    Retorna um dicionario com as melhores ordens baseado nos metodos RMSE e MAE.
+    Retorna um historico com todas as ordens testadas e uma tupla com as metricas RMSE e MAE, nessa ordem.
+    """
+    historico = {}
     melhor_ordem_dict = {
         "Ordem_Filtro_RMSE": 0,
         "RMSE": np.inf,
@@ -130,7 +140,9 @@ def busca_ordem_otima_filtro(
         estimado_eval = sinal[:janela]
         original_eval = signal_original[delay : delay + janela]
 
-        rmse, mae = RMSE_e_MAE_por_ordem(estimado_eval, original_eval)
+        rmse, mae = RMSE_e_MAE_por_ordem(
+            estimado_eval, original_eval  # , limite_filtro=janela
+        )
 
         if rmse < melhor_ordem_dict["RMSE"]:
             melhor_ordem_dict["RMSE"] = round(rmse, 10)
@@ -140,7 +152,9 @@ def busca_ordem_otima_filtro(
             melhor_ordem_dict["MAE"] = round(mae, 10)
             melhor_ordem_dict["Ordem_Filtro_MAE"] = ordem_filter
 
-    return melhor_ordem_dict
+        historico[f"{ordem_filter}"] = [rmse, mae]
+
+    return historico, melhor_ordem_dict
 
 
 # Busca melhor delay do filtro #
@@ -276,3 +290,36 @@ def grid_search_ordem_delay_otimos(
                 melhor = {"ordem": ordem, "delay": delay, "rmse": rmse, "mae": mae}
 
     return melhor, resultados
+
+    # Aplicando os pesos e bias já calculados em um sinal novo #
+
+
+def estimado_com_pesos_ja_calculados(
+    pesos, bias, ordem_filtro, Readout_Shaper  # , seed=None
+):
+    """
+    Aplica pesos e bias previamente calculados em uma entrada nova.
+
+    O obetivo é verificar a capacidade de generalizaçao do filtro.
+    """
+    # sinal novo
+    # sinal_original_2 = original_signal_generator(quantidade_de_amostras, seed=seed)
+
+    # leitura sinal novo
+    # Readout_Shaper_2 = leitura_shaper(sinal_original_2, seed=seed)
+
+    # aplicando filtro #
+    qntd_leitura = len(Readout_Shaper)
+
+    # Sinal Estimado/Recuperado
+    sinal_estimado_2 = np.zeros(qntd_leitura, dtype=float)
+
+    # Tamanho do sinal estimado
+    len_sinal_estimado = qntd_leitura - ordem_filtro + 1
+
+    # Parte adaptativa do filtro
+    for i in range(len_sinal_estimado):
+        sinal_estimado_2[i] = np.dot(Readout_Shaper[i : i + ordem_filtro], pesos) + bias
+
+    sinal_estimado_2 = np.clip(sinal_estimado_2, 0, None)
+    return sinal_estimado_2

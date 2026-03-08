@@ -7,14 +7,14 @@ from numpy.linalg import pinv as inversa
 from Funcoes_auxiliares import matriz_observacao
 
 
-# Versão 1 #
-def filtro_LS(
+# Versão 0 #
+def filtro_LS0(
     sinal_desejado: np.ndarray,
     readout: np.ndarray,
     ordem_filter: int,
 ):
     """
-    1ª versão do Filtro LS para deconvolução do Circuito Shaper com o sinal de entrada.
+    Versão 0 do Filtro LS para deconvolução do Circuito Shaper com o sinal de entrada.
     Método: Pseudo Inversa de Moore-Penrose
     """
     # Qantidade de leituras
@@ -41,7 +41,103 @@ def filtro_LS(
     return sinal_estimado
 
 
-# Versão 2 #
+# Versão 1 #
+def filtro_LS1(
+    sinal_desejado: np.ndarray,
+    readout: np.ndarray,
+    ordem_filter: int,
+    delay: int = 2,
+):
+    """
+    Versão 1 do Filtro LS para deconvolução do Circuito Shaper com o sinal de entrada.
+    Método: Pseudo Inversa de Moore-Penrose
+    """
+    # Qantidade de leituras
+    qntd_leitura = len(readout)
+
+    # Matriz de Observação #
+    matriz_obs = matriz_observacao(readout, ordem_filtro=ordem_filter)
+
+    # Adiciona coluna de 1 para aprender o bias
+    matriz_obs = np.column_stack([matriz_obs, np.ones(matriz_obs.shape[0])])
+
+    # Calculo peso #
+    limite_filtro = qntd_leitura - ordem_filter + 3
+
+    # Pesos via pseudo-inversa
+    aux_peso = (
+        inversa(matriz_obs.T @ matriz_obs)
+        @ matriz_obs.T
+        @ sinal_desejado[delay:limite_filtro]
+    )
+
+    peso = np.flipud(aux_peso[:-1])  # -1 para retirar o bias
+    bias = aux_peso[-1]
+
+    # Sinal Estimado/Recuperado #
+    sinal_estimado = np.zeros(qntd_leitura)
+
+    # Parte adaptativa do filtro
+    len_sinal_estimado = qntd_leitura - ordem_filter + 1
+
+    for i in range(len_sinal_estimado):
+        sinal_estimado[i] = np.dot(readout[i : i + ordem_filter], peso) + bias
+
+    # Retira os valores menores que 0
+    sinal_estimado = np.clip(sinal_estimado, 0, None)
+
+    return sinal_estimado, peso, bias
+
+
+# Versão 1.1 #
+def filtro_LS10(
+    sinal_desejado: np.ndarray,
+    readout: np.ndarray,
+    ordem_filter: int,
+    delay: int = 2,
+):
+    """
+    Versão 1 do Filtro LS para deconvolução do Circuito Shaper com o sinal de entrada.
+    Método: Pseudo Inversa de Moore-Penrose
+    """
+    # Qantidade de leituras
+    qntd_leitura = len(readout)
+
+    # Matriz de Observação #
+    matriz_obs = matriz_observacao(readout, ordem_filtro=ordem_filter)
+
+    # Adiciona coluna de 1 para aprender o bias
+    matriz_obs = np.column_stack([matriz_obs, np.ones(matriz_obs.shape[0])])
+
+    # Calculo peso #
+    limite_filtro = matriz_obs.shape[0]  # qntd_leitura - ordem_filter + 3
+
+    # Pesos via pseudo-inversa
+    aux_peso = (
+        inversa(matriz_obs.T @ matriz_obs)
+        @ matriz_obs.T
+        @ sinal_desejado[delay : delay + limite_filtro]
+    )
+
+    peso = np.flipud(aux_peso[:-1])  # -1 para retirar o bias
+    bias = aux_peso[-1]
+
+    # Sinal Estimado/Recuperado #
+    sinal_estimado = np.zeros(qntd_leitura)
+
+    # Parte adaptativa do filtro
+    len_sinal_estimado = qntd_leitura - ordem_filter + 1
+
+    for i in range(len_sinal_estimado):
+        sinal_estimado[i] = np.dot(readout[i : i + ordem_filter], peso) + bias
+
+    # Retira os valores menores que 0
+    sinal_estimado = np.clip(sinal_estimado, 0, None)
+
+    return sinal_estimado, peso, bias
+
+
+# Versão 2 # acho q esse cara ta bichado
 def filtro_LS_2(  # filtro LS com delay, bias e clip #
     sinal_desejado: list | np.ndarray,
     readout: list | np.ndarray,
@@ -64,7 +160,7 @@ def filtro_LS_2(  # filtro LS com delay, bias e clip #
     matriz_obs = matriz_observacao(readout_shaper, ordem_filtro=ordem_filter)
 
     # Tamanho útil para alinhar matriz_obs com y deslocado
-    # end1 = len(readout_shaper) - ordem_filter + 3
+    # end = len(readout_shaper) - ordem_filter + 3
     end = matriz_obs.shape[0] + delay
 
     sinal_desejado = np.asarray(sinal_desejado)
@@ -76,7 +172,8 @@ def filtro_LS_2(  # filtro LS com delay, bias e clip #
     aux_peso = (
         inversa(matriz_obs.T @ matriz_obs) @ matriz_obs.T @ sinal_desejado[delay:end]
     )
-    peso = np.flipud(aux_peso[:-1])
+    peso_com_bias = np.flipud(aux_peso)
+    peso_sem_bias = peso_com_bias[:-1]
     bias = aux_peso[-1]
 
     # reconstrução/ Sinal Estimado/Recuperado #
@@ -84,12 +181,14 @@ def filtro_LS_2(  # filtro LS com delay, bias e clip #
     max_i = len(readout_shaper) - ordem_filter + 1
     for i in range(max_i):
         # Parte adaptativa do filtro
-        sinal_estimado[i] = np.sum(readout_shaper[i : i + ordem_filter] * peso) + bias
+        sinal_estimado[i] = (
+            np.sum(readout_shaper[i : i + ordem_filter] * peso_sem_bias) + bias
+        )
 
     # Substitui por 0 os valores abaixo de 0 da leitura
     sinal_estimado = np.clip(sinal_estimado, valor_min_clip, valor_max_clip)
 
-    return sinal_estimado
+    return sinal_estimado, peso_sem_bias, bias
 
 
 # Versão 3 #
@@ -198,7 +297,7 @@ def filtro_LS_com_termos_nao_lineares(
         return sinal_estimado, pesos
 
 
-# Versão 4 # e, construçao
+# Versão 4 # em construção
 def filtro_LS_nao_linear_adaptativo(
     sinal_desejado: list | np.ndarray,
     readout: list | np.ndarray,
@@ -304,11 +403,7 @@ def filtro_LS_nao_linear_adaptativo(
         return sinal_estimado, pesos
 
 
-import numpy as np
-from Funcoes_auxiliares import matriz_observacao
-
-
-def filtro_LS_com_termos_nao_lineares_adaptativo(
+def filtro_LS_nao_linear_adaptativo2(
     sinal_desejado: list | np.ndarray,
     readout: list | np.ndarray,
     ordem_filter: int = 7,
