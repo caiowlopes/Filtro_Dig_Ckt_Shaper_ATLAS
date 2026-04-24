@@ -6,6 +6,58 @@ from typing import Callable
 
 
 # Funções auxiliares #
+# Classifica valores por ranges
+def classificar_lista_por_ranges(
+    valores: list | np.ndarray,
+    ranges: dict[str, tuple[float, float]],
+    pico_min: float,
+    label_parado: str = "parado",
+    label_subindo: str = "subindo",
+    label_pico: str = "pico",
+    label_descendo: str = "descendo",
+):
+    """
+    Substitui cada valor por um rotulo baseado em ranges.
+
+    Regras:
+    - Se o valor estiver no range de 'pico' e for >= pico_min, rotula como 'pico'.
+    - Se estiver no range de 'pico' mas < pico_min, rotula como 'parado'.
+    - Caso contrario, usa o primeiro range que casar (ordem do dict).
+    - Se nenhum range casar, rotula como 'parado'.
+    """
+    if label_pico not in ranges:
+        raise ValueError("ranges deve conter a chave 'pico'.")
+
+    resultado = []
+
+    for v in np.asarray(valores):
+        rotulo = label_parado
+
+        pico_min_range, pico_max_range = ranges[label_pico]
+        if pico_min_range <= v <= pico_max_range:
+            rotulo = label_pico if v >= pico_min else label_parado
+            resultado.append(rotulo)
+            continue
+
+        for nome, (vmin, vmax) in ranges.items():
+            if nome == label_pico:
+                continue
+            if vmin <= v <= vmax:
+                if nome == "parado":
+                    rotulo = label_parado
+                elif nome == "subindo":
+                    rotulo = label_subindo
+                elif nome == "descendo":
+                    rotulo = label_descendo
+                else:
+                    rotulo = nome
+                break
+
+        resultado.append(rotulo)
+
+    return resultado
+
+
 # Plot comparação
 def plot_estimado_x_original(
     original: np.ndarray,
@@ -75,6 +127,14 @@ def matriz_observacao(sinal: list | np.ndarray, ordem_filtro: int = 2):
     """
     Constrói a matriz de observação a partir do sinal de entrada utilizando
     janelas deslizantes de tamanho igual à ordem do filtro.
+
+    Exemplo:
+    sinal = [1,2,3,4,5]
+    ordem_filtro = 3
+
+    saida = [[1 2 3]
+            [2 3 4]
+            [3 4 5]]
     """
     return np.lib.stride_tricks.sliding_window_view(np.array(sinal), ordem_filtro)
 
@@ -291,12 +351,14 @@ def grid_search_ordem_delay_otimos(
 
     return melhor, resultados
 
-    # Aplicando os pesos e bias já calculados em um sinal novo #
 
-
+# Aplicando os pesos e bias já calculados em um sinal novo #
 def estimado_com_pesos_ja_calculados(
-    pesos, bias, ordem_filtro, Readout_Shaper  # , seed=None
-):
+    pesos,
+    bias,
+    Readout,
+    ordem_filtro: int = 7,
+):  # , seed=None
     """
     Aplica pesos e bias previamente calculados em uma entrada nova.
 
@@ -309,7 +371,7 @@ def estimado_com_pesos_ja_calculados(
     # Readout_Shaper_2 = leitura_shaper(sinal_original_2, seed=seed)
 
     # aplicando filtro #
-    qntd_leitura = len(Readout_Shaper)
+    qntd_leitura = len(Readout)
 
     # Sinal Estimado/Recuperado
     sinal_estimado_2 = np.zeros(qntd_leitura, dtype=float)
@@ -319,7 +381,7 @@ def estimado_com_pesos_ja_calculados(
 
     # Parte adaptativa do filtro
     for i in range(len_sinal_estimado):
-        sinal_estimado_2[i] = np.dot(Readout_Shaper[i : i + ordem_filtro], pesos) + bias
+        sinal_estimado_2[i] = np.dot(Readout[i : i + ordem_filtro], pesos) + bias
 
     sinal_estimado_2 = np.clip(sinal_estimado_2, 0, None)
     return sinal_estimado_2
